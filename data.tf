@@ -38,13 +38,6 @@ data "aws_iam_policy_document" "mwaa_assume" {
       type        = "Service"
       identifiers = ["s3.amazonaws.com"]
     }
-    dynamic "principals" {
-      for_each = var.additional_principal_arns
-      content {
-        type        = "AWS"
-        identifiers = [principals.value]
-      }
-    }
   }
 }
 #tfsec:ignore:AWS099
@@ -56,15 +49,13 @@ data "aws_iam_policy_document" "mwaa" {
       "airflow:CreateWebLoginToken"
     ]
     resources = [
-      "arn:${data.aws_partition.current.id}:airflow:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:environment/${var.name}"
+      "arn:${data.aws_partition.current.id}:airflow:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:environment/${var.name}"
     ]
   }
   statement {
     effect = "Allow"
     actions = [
-      "s3:GetObject*",
-      "s3:GetBucket*",
-      "s3:List*"
+      "s3:*"
     ]
     resources = [
       local.source_bucket_arn,
@@ -84,7 +75,7 @@ data "aws_iam_policy_document" "mwaa" {
       "logs:GetQueryResults"
     ]
     resources = [
-      "arn:${data.aws_partition.current.id}:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:airflow-${var.name}-*"
+      "arn:${data.aws_partition.current.id}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:airflow-${var.name}-*"
     ]
   }
 
@@ -93,8 +84,9 @@ data "aws_iam_policy_document" "mwaa" {
     actions = [
       "logs:DescribeLogGroups",
       "cloudwatch:PutMetricData",
-      "s3:GetAccountPublicAccessBlock",
-      "eks:DescribeCluster"
+      "batch:DescribeJobs",
+      "batch:ListJobs",
+      "eks:*"
     ]
     resources = [
       "*"
@@ -112,14 +104,10 @@ data "aws_iam_policy_document" "mwaa" {
       "sqs:SendMessage"
     ]
     resources = [
-      "arn:${data.aws_partition.current.id}:sqs:${data.aws_region.current.name}:*:airflow-celery-*"
+      "arn:${data.aws_partition.current.id}:sqs:${data.aws_region.current.region}:*:airflow-celery-*"
     ]
   }
 
-  # See note in https://docs.aws.amazon.com/mwaa/latest/userguide/mwaa-create-role.html
-  # if MWAA is using a AWS managed KMS key, we have to give permission to the key in ?? account
-  # We don't know what account AWS puts their key in so we use not_resources to grant access to all
-  # accounts except for ours
   dynamic "statement" {
     for_each = var.kms_key != null ? [] : [1]
     content {
@@ -138,7 +126,7 @@ data "aws_iam_policy_document" "mwaa" {
         variable = "kms:ViaService"
 
         values = [
-          "sqs.${data.aws_region.current.name}.amazonaws.com"
+          "sqs.${data.aws_region.current.region}.amazonaws.com"
         ]
       }
     }
@@ -162,7 +150,7 @@ data "aws_iam_policy_document" "mwaa" {
         variable = "kms:ViaService"
 
         values = [
-          "sqs.${data.aws_region.current.name}.amazonaws.com"
+          "sqs.${data.aws_region.current.region}.amazonaws.com"
         ]
       }
     }
@@ -184,7 +172,7 @@ data "aws_iam_policy_document" "mwaa" {
       "ssm:*"
     ]
     resources = [
-      "arn:${data.aws_partition.current.id}:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/*"
+      "arn:${data.aws_partition.current.id}:ssm:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:parameter/*"
     ]
   }
 
@@ -193,12 +181,12 @@ data "aws_iam_policy_document" "mwaa" {
     actions = [
       "logs:*"
     ]
-    resources = ["arn:${data.aws_partition.current.id}:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*"]
+    resources = ["arn:${data.aws_partition.current.id}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*"]
   }
 
   statement {
     effect    = "Allow"
     actions   = ["cloudwatch:*"]
-    resources = ["arn:${data.aws_partition.current.id}:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*"]
+    resources = ["arn:${data.aws_partition.current.id}:logs:${data.aws_region.current.region}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/*"]
   }
 }

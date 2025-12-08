@@ -1,0 +1,24 @@
+name: Claude PR Review
+
+on: # yamllint disable-line rule:truthy
+  pull_request:
+    types: [opened, reopened, ready_for_review, synchronize]
+  workflow_dispatch:
+    inputs:
+      model:
+        description: "Claude model to use"
+        required: false
+        default: "claude-sonnet-4-5-20250929"
+        type: choice
+        options:
+          - claude-sonnet-4-5-20250929
+          - claude-opus-4-5-20251101
+          - claude-haiku-4-5-20251101
+
+jobs:
+  claude-review:
+    uses: moment-technology/review-action/.github/workflows/claude-pr-review.yml@v1
+    with:
+      model: ${{ github.event.inputs.model || 'claude-opus-4-5-20251101' }}
+    secrets:
+      ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
